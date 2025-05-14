@@ -4,26 +4,33 @@ using System.Windows.Forms;
 using CurrentAnalyzer;
 using ScottPlot.WinForms;
 using System.Linq;
+using ScottPlot;
+using VoltageAnalyzer;
 
 namespace prarktikateam6
 {
     public partial class Form1 : Form
     {
-        private FaultCurrentAnalyzer _analyzer;
+        private FaultCurrentAnalyzer _currentsAnalyzer;
+        private ThreeVoltageAnalyzer _voltageAnalyzer;
 
         public Form1()
         {
             InitializeComponent();
             InitializePlots();
-            SetupEventHandlers();
+            //SetupEventHandlers();
         }
 
         private void InitializePlots()
         {
             plotCurrents.Plot.Title("Токи фаз");
             plotCurrents.Plot.ShowLegend();
-            plotSequence.Plot.Title("Симметричные составляющие");
-            plotSequence.Plot.ShowLegend();
+            plotCurrentsSequence.Plot.Title("Симметричные составляющие");
+            plotCurrentsSequence.Plot.ShowLegend();
+            plotVoltage.Plot.Title("Напряжения фаз");
+            plotVoltage.Plot.ShowLegend();
+            plotVoltageSequence.Plot.Title("Симметричные составляющие");
+            plotVoltageSequence.Plot.ShowLegend();
         }
 
         private void SetupEventHandlers()
@@ -44,9 +51,12 @@ namespace prarktikateam6
             {
                 try
                 {
-                    _analyzer = new FaultCurrentAnalyzer(openFileDialog.FileName);
+                    _currentsAnalyzer = new FaultCurrentAnalyzer(openFileDialog.FileName);
+                    _voltageAnalyzer = new ThreeVoltageAnalyzer(openFileDialog.FileName);
                     PlotCurrents();
-                    PlotSequenceComponents();
+                    PlotCurrentsSequenceComponents();
+                    PlotVoltage();
+                    PlotVoltageSequenceComponents();
                     ShowFaultInfo();
                     statusLabel.Text = $"Загружен файл: {Path.GetFileName(openFileDialog.FileName)}";
                 }
@@ -63,44 +73,86 @@ namespace prarktikateam6
         {
             plotCurrents.Plot.Clear();
 
-            double[] timeSeconds = _analyzer.TimeStamps
-                .Select(t => (t - _analyzer.TimeStamps[0]).TotalSeconds)
+            double[] timeSeconds = _currentsAnalyzer.TimeStamps
+                .Select(t => (t - _currentsAnalyzer.TimeStamps[0]).TotalSeconds)
                 .ToArray();
 
-            var sigA = plotCurrents.Plot.Add.SignalXY(timeSeconds, _analyzer.CurrentA.ToArray());
+            var sigA = plotCurrents.Plot.Add.SignalXY(timeSeconds, _currentsAnalyzer.CurrentA.ToArray());
             sigA.LegendText = "Ток A";
-            var sigB = plotCurrents.Plot.Add.SignalXY(timeSeconds, _analyzer.CurrentB.ToArray());
+            var sigB = plotCurrents.Plot.Add.SignalXY(timeSeconds, _currentsAnalyzer.CurrentB.ToArray());
             sigB.LegendText = "Ток B";
-            var sigC = plotCurrents.Plot.Add.SignalXY(timeSeconds, _analyzer.CurrentC.ToArray());
+            var sigC = plotCurrents.Plot.Add.SignalXY(timeSeconds, _currentsAnalyzer.CurrentC.ToArray());
             sigC.LegendText = "Ток C";
 
+            plotCurrents.Plot.Axes.AutoScale();
+            plotCurrents.Plot.ShowLegend(Edge.Bottom);
             plotCurrents.Refresh();
         }
 
-        private void PlotSequenceComponents()
+        private void PlotCurrentsSequenceComponents()
         {
-            plotSequence.Plot.Clear();
+            plotCurrentsSequence.Plot.Clear();
 
-            double[] timeSeconds = _analyzer.TimeStamps
-                .Select(t => (t - _analyzer.TimeStamps[0]).TotalSeconds)
+            double[] timeSeconds = _currentsAnalyzer.TimeStamps
+                .Select(t => (t - _currentsAnalyzer.TimeStamps[0]).TotalSeconds)
                 .ToArray();
 
-            var sig0 = plotSequence.Plot.Add.SignalXY(timeSeconds, _analyzer.ZeroSequence.ToArray());
+            var sig0 = plotCurrentsSequence.Plot.Add.SignalXY(timeSeconds, _currentsAnalyzer.ZeroSequence.ToArray());
             sig0.LegendText = "Нулевая последовательность";
-            var sig1 = plotSequence.Plot.Add.SignalXY(timeSeconds, _analyzer.PositiveSequence.ToArray());
+            var sig1 = plotCurrentsSequence.Plot.Add.SignalXY(timeSeconds, _currentsAnalyzer.PositiveSequence.ToArray());
             sig1.LegendText = "Прямая последовательность";
-            var sig2 = plotSequence.Plot.Add.SignalXY(timeSeconds, _analyzer.NegativeSequence.ToArray());
+            var sig2 = plotCurrentsSequence.Plot.Add.SignalXY(timeSeconds, _currentsAnalyzer.NegativeSequence.ToArray());
             sig2.LegendText = "Обратная последовательность";
 
-            plotSequence.Refresh();
+            plotCurrentsSequence.Plot.Axes.AutoScale();
+            plotCurrentsSequence.Plot.ShowLegend(Edge.Bottom);
+            plotCurrentsSequence.Refresh();
+        }
+
+        private void PlotVoltage()
+        {
+            plotVoltage.Plot.Clear();
+
+            double[] timeSeconds = _voltageAnalyzer.TimeStamps
+                .Select(t => (t - _voltageAnalyzer.TimeStamps[0]).TotalSeconds)
+                .ToArray();
+
+            var sigA = plotVoltage.Plot.Add.SignalXY(timeSeconds, _voltageAnalyzer.VoltageA.ToArray());
+            sigA.LegendText = "Напряжение A";
+            var sigB = plotVoltage.Plot.Add.SignalXY(timeSeconds, _voltageAnalyzer.VoltageB.ToArray());
+            sigB.LegendText = "Напряжение B";
+            var sigC = plotVoltage.Plot.Add.SignalXY(timeSeconds, _voltageAnalyzer.VoltageC.ToArray());
+            sigC.LegendText = "Напряжение C";
+
+            plotVoltage.Plot.Axes.AutoScale();
+            plotVoltage.Plot.ShowLegend(Edge.Bottom);
+            plotVoltage.Refresh();
+        }
+
+        private void PlotVoltageSequenceComponents()
+        {
+            plotVoltageSequence.Plot.Clear();
+
+            double[] timeSeconds = _voltageAnalyzer.TimeStamps
+                .Select(t => (t - _voltageAnalyzer.TimeStamps[0]).TotalSeconds)
+                .ToArray();
+
+            var sig0 = plotVoltageSequence.Plot.Add.SignalXY(timeSeconds, _voltageAnalyzer.ZeroSequence.ToArray());
+            sig0.LegendText = "Нулевая последовательность";
+            var sig1 = plotVoltageSequence.Plot.Add.SignalXY(timeSeconds, _voltageAnalyzer.PositiveSequence.ToArray());
+            sig1.LegendText = "Прямая последовательность";
+
+            plotVoltageSequence.Plot.Axes.AutoScale();
+            plotVoltageSequence.Plot.ShowLegend(Edge.Bottom);
+            plotVoltageSequence.Refresh();
         }
 
         private void ShowFaultInfo()
         {
-            string info = $"Тип КЗ: {_analyzer.FaultType}\n" +
-                         $"Пиковые токи:\nA = {_analyzer.PeakCurrents[0]:F2} A\n" +
-                         $"B = {_analyzer.PeakCurrents[1]:F2} A\n" +
-                         $"C = {_analyzer.PeakCurrents[2]:F2} A";
+            string info = $"Тип КЗ: {_currentsAnalyzer.FaultType}\n" +
+                         $"Пиковые токи:\nA = {_currentsAnalyzer.PeakCurrents[0]:F2} A\n" +
+                         $"B = {_currentsAnalyzer.PeakCurrents[1]:F2} A\n" +
+                         $"C = {_currentsAnalyzer.PeakCurrents[2]:F2} A";
 
             MessageBox.Show(info, "Результаты анализа",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -108,7 +160,7 @@ namespace prarktikateam6
 
         private void saveToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (_analyzer == null)
+            if (_currentsAnalyzer == null)
             {
                 MessageBox.Show("Нет данных для сохранения", "Ошибка",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -125,7 +177,7 @@ namespace prarktikateam6
             {
                 try
                 {
-                    _analyzer.SaveResults(saveDialog.FileName);
+                    _currentsAnalyzer.SaveResults(saveDialog.FileName);
                     statusLabel.Text = $"Результаты сохранены в {Path.GetFileName(saveDialog.FileName)}";
                     MessageBox.Show("Результаты успешно сохранены", "Сохранение",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -137,5 +189,6 @@ namespace prarktikateam6
                 }
             }
         }
+
     }
 }
