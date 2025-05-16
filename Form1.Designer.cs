@@ -153,7 +153,7 @@
             // 
             plotVoltage.Anchor = AnchorStyles.Left;
             plotVoltage.DisplayScale = 1F;
-            plotVoltage.Location = new Point(2, 1);
+            plotVoltage.Location = new Point(2, 3);
             plotVoltage.Margin = new Padding(2, 1, 2, 1);
             plotVoltage.Name = "plotVoltage";
             plotVoltage.Size = new Size(435, 307);

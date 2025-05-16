@@ -23,6 +23,7 @@ namespace CurrentAnalyzer
         public List<double> CurrentB { get; }
         public List<double> CurrentC { get; }
         public List<double> PeakCurrents { get; private set; }
+        public List<double> MaxCurrents { get; private set; }
         public List<double> PositiveSequence { get; private set; }
         public List<double> NegativeSequence { get; private set; }
         public List<double> ZeroSequence { get; private set; }
@@ -81,20 +82,94 @@ namespace CurrentAnalyzer
 
         private void AnalyzeFault()
         {
+            CalculateMaxCurrents();
             CalculatePeakCurrents();
             CalculateSequenceComponents();
             DetermineFaultType();
         }
 
-        private void CalculatePeakCurrents()
+        private void CalculateMaxCurrents()
         {
-            PeakCurrents = new List<double>
+            MaxCurrents = new List<double>
             {
                 CurrentA.Max(Math.Abs),
                 CurrentB.Max(Math.Abs),
                 CurrentC.Max(Math.Abs)
             };
         }
+
+        private void CalculatePeakCurrents()
+        {
+            PeakCurrents = new List<double>{0,0,0,0,0,0};
+
+            bool foundA = false, foundB = false, foundC = false, fA = false, fB = false, fC = false;
+            double[] localPeakA = new double[CurrentA.Count];
+            double[] localPeakB = new double[CurrentA.Count];
+            double[] localPeakC = new double[CurrentA.Count];
+
+            for (int i = 1; i < CurrentA.Count; i++)
+            {
+                if (!foundA && IsPeak(CurrentA, i))
+                {
+                    PeakCurrents[3] = Math.Abs(CurrentA[i]);
+                    foundA = true;
+                }
+
+                if (!foundB && IsPeak(CurrentB, i))
+                {
+                    PeakCurrents[4] = Math.Abs(CurrentB[i]);
+                    foundB = true;
+                }
+
+                if (!foundC && IsPeak(CurrentC, i))
+                {
+                    PeakCurrents[5] = Math.Abs(CurrentC[i]);
+                    foundC = true;
+                }
+
+                if (!fA && IsPeak(CurrentA, i) && Math.Abs(CurrentA[i]) > PeakCurrents[3] * 1.5)
+                {
+                    localPeakA[i] = Math.Abs(CurrentA[i]);                   
+                }
+
+                if (!fB && IsPeak(CurrentB, i) && Math.Abs(CurrentB[i]) > PeakCurrents[4] * 1.5)
+                {
+                    localPeakB[i] = Math.Abs(CurrentB[i]);
+                }
+
+                if (!fC && IsPeak(CurrentC, i) && Math.Abs(CurrentC[i]) > PeakCurrents[5] * 1.5)
+                {
+                    localPeakC[i] = Math.Abs(CurrentC[i]);
+                }
+
+                if (Array.Exists(localPeakA, x => x != 0.0) && Math.Sign(CurrentA[i]) != Math.Sign(CurrentA[i - 1]))
+                {
+                    PeakCurrents[0] = localPeakA.Max();
+                    fA = true;
+                }
+
+                if (Array.Exists(localPeakB, x => x != 0.0) && Math.Sign(CurrentB[i]) != Math.Sign(CurrentB[i - 1]))
+                {
+                    PeakCurrents[1] = localPeakB.Max();
+                    fB = true;
+                }
+
+                if (Array.Exists(localPeakC, x => x != 0.0) && Math.Sign(CurrentC[i]) != Math.Sign(CurrentC[i - 1]))
+                {
+                    PeakCurrents[2] = localPeakC.Max();
+                    fC = true;
+                }
+
+                if (fA && fB && fC) break;
+            }
+        }
+
+        private bool IsPeak(List<double> signal, int index)
+        {
+            return (signal[index] > signal[index - 1] && signal[index] > signal[index + 1]) ||
+            (signal[index] < signal[index - 1] && signal[index] < signal[index + 1]);
+        }
+
 
         private void CalculateSequenceComponents()
         {
@@ -122,13 +197,20 @@ namespace CurrentAnalyzer
 
         private void DetermineFaultType()
         {
-            double maxZero = ZeroSequence.Max();
-            double maxNeg = NegativeSequence.Max();
-            double maxPos = PositiveSequence.Max();
-
-            FaultType = maxZero > maxPos * 0.5 ? "Однофазное КЗ" :
-                       maxNeg > maxPos * 0.5 ? "Двухфазное КЗ" :
-                       "Трехфазное КЗ";
+            if (PeakCurrents[0] != 0.0 && PeakCurrents[1] != 0.0 && PeakCurrents[2] != 0.0)
+                FaultType = "Трехфазное КЗ";
+            else if (PeakCurrents[0] == 0.0 && PeakCurrents[1] != 0.0 && PeakCurrents[2] != 0.0)
+                FaultType = "Двухфазное - КЗ фаз B и C";
+            else if (PeakCurrents[0] != 0.0 && PeakCurrents[1] == 0.0 && PeakCurrents[2] != 0.0)
+                FaultType = "Двухфазное - КЗ фаз A и C";
+            else if (PeakCurrents[0] != 0.0 && PeakCurrents[1] != 0.0 && PeakCurrents[2] == 0.0)
+                FaultType = "Двухфазное - КЗ фаз A и B";
+            else if (PeakCurrents[0] == 0.0 && PeakCurrents[1] == 0.0 && PeakCurrents[2] != 0.0)
+                FaultType = "Однофазное - КЗ фазы C";
+            else if (PeakCurrents[0] != 0.0 && PeakCurrents[1] == 0.0 && PeakCurrents[2] == 0.0)
+                FaultType = "Однофазное - КЗ фазы A";
+            else if (PeakCurrents[0] == 0.0 && PeakCurrents[1] != 0.0 && PeakCurrents[2] == 0.0)
+                FaultType = "Однофазное - КЗ фазы B";
         }
 
         public void SaveResults(string outputPath)

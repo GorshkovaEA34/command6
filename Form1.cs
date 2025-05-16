@@ -6,6 +6,7 @@ using ScottPlot.WinForms;
 using System.Linq;
 using ScottPlot;
 using VoltageAnalyzer;
+using System.Reflection.Emit;
 
 namespace prarktikateam6
 {
@@ -16,29 +17,18 @@ namespace prarktikateam6
 
         public Form1()
         {
-            InitializeComponent();
+            InitializeComponent();           
             InitializePlots();
-            //SetupEventHandlers();
         }
 
         private void InitializePlots()
         {
             plotCurrents.Plot.Title("Токи фаз");
-            plotCurrents.Plot.ShowLegend();
             plotCurrentsSequence.Plot.Title("Симметричные составляющие");
-            plotCurrentsSequence.Plot.ShowLegend();
-            plotVoltage.Plot.Title("Напряжения фаз");
-            plotVoltage.Plot.ShowLegend();
+            plotVoltage.Plot.Title("Напряжения фаз");           
             plotVoltageSequence.Plot.Title("Симметричные составляющие");
-            plotVoltageSequence.Plot.ShowLegend();
         }
-
-        private void SetupEventHandlers()
-        {
-            openToolStripMenuItem.Click += openToolStripMenuItem_Click;
-            saveToolStripMenuItem.Click += saveToolStripMenuItem_Click;
-        }
-
+                
         private void openToolStripMenuItem_Click(object sender, EventArgs e)
         {
             using var openFileDialog = new OpenFileDialog
@@ -53,10 +43,11 @@ namespace prarktikateam6
                 {
                     _currentsAnalyzer = new FaultCurrentAnalyzer(openFileDialog.FileName);
                     _voltageAnalyzer = new ThreeVoltageAnalyzer(openFileDialog.FileName);
+                    ClearAll();
                     PlotCurrents();
                     PlotCurrentsSequenceComponents();
                     PlotVoltage();
-                    PlotVoltageSequenceComponents();
+                    PlotVoltageSequenceComponents();                   
                     ShowFaultInfo();
                     statusLabel.Text = $"Загружен файл: {Path.GetFileName(openFileDialog.FileName)}";
                 }
@@ -70,9 +61,7 @@ namespace prarktikateam6
         }
 
         private void PlotCurrents()
-        {
-            plotCurrents.Plot.Clear();
-
+        {            
             double[] timeSeconds = _currentsAnalyzer.TimeStamps
                 .Select(t => (t - _currentsAnalyzer.TimeStamps[0]).TotalSeconds)
                 .ToArray();
@@ -91,8 +80,6 @@ namespace prarktikateam6
 
         private void PlotCurrentsSequenceComponents()
         {
-            plotCurrentsSequence.Plot.Clear();
-
             double[] timeSeconds = _currentsAnalyzer.TimeStamps
                 .Select(t => (t - _currentsAnalyzer.TimeStamps[0]).TotalSeconds)
                 .ToArray();
@@ -111,8 +98,6 @@ namespace prarktikateam6
 
         private void PlotVoltage()
         {
-            plotVoltage.Plot.Clear();
-
             double[] timeSeconds = _voltageAnalyzer.TimeStamps
                 .Select(t => (t - _voltageAnalyzer.TimeStamps[0]).TotalSeconds)
                 .ToArray();
@@ -131,8 +116,6 @@ namespace prarktikateam6
 
         private void PlotVoltageSequenceComponents()
         {
-            plotVoltageSequence.Plot.Clear();
-
             double[] timeSeconds = _voltageAnalyzer.TimeStamps
                 .Select(t => (t - _voltageAnalyzer.TimeStamps[0]).TotalSeconds)
                 .ToArray();
@@ -147,12 +130,55 @@ namespace prarktikateam6
             plotVoltageSequence.Refresh();
         }
 
+        private void ClearAll() //Если использовать Plot.Clear, то старая легенда не исчезает.
+                                //.Reset решает эту проблему, но с ним есть визуальный баг
+        {
+            // Полная очистка через пересоздание FormsPlot
+            plotCurrents = RecreatePlot(plotCurrents, "Токи фаз");
+            plotCurrentsSequence = RecreatePlot(plotCurrentsSequence, "Симметричные составляющие");
+            plotVoltage = RecreatePlot(plotVoltage, "Напряжения фаз");
+            plotVoltageSequence = RecreatePlot(plotVoltageSequence, "Симметричные составляющие");
+        }
+
+        private FormsPlot RecreatePlot(FormsPlot oldPlot, string title)
+        {
+            // Сохраняем параметры
+            var parent = oldPlot.Parent;
+            var dock = oldPlot.Dock;
+            var size = oldPlot.Size;
+            var location = oldPlot.Location;
+
+            // Создаем новый контрол
+            var newPlot = new FormsPlot();
+            newPlot.Dock = dock;
+            newPlot.Size = size;
+            newPlot.Location = location;
+            newPlot.Plot.Title(title);
+
+            // Заменяем контрол
+            parent.Controls.Remove(oldPlot);
+            parent.Controls.Add(newPlot);
+
+            return newPlot;
+        }
+
         private void ShowFaultInfo()
         {
             string info = $"Тип КЗ: {_currentsAnalyzer.FaultType}\n" +
-                         $"Пиковые токи:\nA = {_currentsAnalyzer.PeakCurrents[0]:F2} A\n" +
-                         $"B = {_currentsAnalyzer.PeakCurrents[1]:F2} A\n" +
-                         $"C = {_currentsAnalyzer.PeakCurrents[2]:F2} A";
+                         $"Максимальные токи до КЗ:\n" +
+                         $"A = {_currentsAnalyzer.PeakCurrents[3]:F2} A\n" +
+                         $"B = {_currentsAnalyzer.PeakCurrents[4]:F2} A\n" +
+                         $"C = {_currentsAnalyzer.PeakCurrents[5]:F2} A\n" +
+                         $"Ударные токи:\n";
+                         
+            string[] phases = { "A", "B", "C" };
+            for (int i = 0; i < 3;  i++)
+            {
+                if (_currentsAnalyzer.PeakCurrents[i] == 0.0)
+                    info += $"КЗ в фазе {phases[i]} отсутствует\n";
+                else               
+                    info += $"{phases[i]} = {_currentsAnalyzer.MaxCurrents[i]:F2} A\n";                           
+            }
 
             MessageBox.Show(info, "Результаты анализа",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
