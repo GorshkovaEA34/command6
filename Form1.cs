@@ -7,6 +7,7 @@ using System.Linq;
 using ScottPlot;
 using VoltageAnalyzer;
 using System.Reflection.Emit;
+using System.Numerics;
 
 namespace prarktikateam6
 {
@@ -23,10 +24,25 @@ namespace prarktikateam6
 
         private void InitializePlots()
         {
+   // Токи фаз
             plotCurrents.Plot.Title("Токи фаз");
-            plotCurrentsSequence.Plot.Title("Симметричные составляющие");
-            plotVoltage.Plot.Title("Напряжения фаз");           
-            plotVoltageSequence.Plot.Title("Симметричные составляющие");
+            plotCurrents.Plot.XLabel("Время, с");
+            plotCurrents.Plot.YLabel("Ток, А");
+
+            // Симметричные составляющие токов
+            plotCurrentsSequence.Plot.Title("Симметричные составляющие токов");
+            plotCurrentsSequence.Plot.XLabel("Время, с");
+            plotCurrentsSequence.Plot.YLabel("Ток, А");
+
+            // Напряжения фаз
+            plotVoltage.Plot.Title("Напряжения фаз");
+            plotVoltage.Plot.XLabel("Время, с");
+            plotVoltage.Plot.YLabel("Напряжение, В");
+
+            // Симметричные составляющие напряжений
+            plotVoltageSequence.Plot.Title("Симметричные составляющие напряжений");
+            plotVoltageSequence.Plot.XLabel("Время, с");
+            plotVoltageSequence.Plot.YLabel("Напряжение, В");
         }
                 
         private void openToolStripMenuItem_Click(object sender, EventArgs e)
@@ -164,20 +180,29 @@ namespace prarktikateam6
 
         private void ShowFaultInfo()
         {
+            // Рассчитываем средние значения напряжений
+            double avgPositiveSeq = _voltageAnalyzer.PositiveSequence.Any() ?
+                _voltageAnalyzer.PositiveSequence.Average() : 0;
+            double avgZeroSeq = _voltageAnalyzer.ZeroSequence.Any() ?
+                _voltageAnalyzer.ZeroSequence.Average() : 0;
+
             string info = $"Тип КЗ: {_currentsAnalyzer.FaultType}\n" +
                          $"Максимальные токи до КЗ:\n" +
                          $"A = {_currentsAnalyzer.PeakCurrents[3]:F2} A\n" +
                          $"B = {_currentsAnalyzer.PeakCurrents[4]:F2} A\n" +
-                         $"C = {_currentsAnalyzer.PeakCurrents[5]:F2} A\n" +
+                         $"C = {_currentsAnalyzer.PeakCurrents[5]:F2} A\n\n" +
+                         $"Напряжения:\n" +
+                         $"Прямая последовательность: {avgPositiveSeq:F2} В\n" +
+                         $"Нулевая последовательность: {avgZeroSeq:F2} В\n\n" +
                          $"Ударные токи:\n";
-                         
+
             string[] phases = { "A", "B", "C" };
-            for (int i = 0; i < 3;  i++)
+            for (int i = 0; i < 3; i++)
             {
                 if (_currentsAnalyzer.PeakCurrents[i] == 0.0)
                     info += $"КЗ в фазе {phases[i]} отсутствует\n";
-                else               
-                    info += $"{phases[i]} = {_currentsAnalyzer.MaxCurrents[i]:F2} A\n";                           
+                else
+                    info += $"{phases[i]} = {_currentsAnalyzer.PeakCurrents[i]:F2} A\n";
             }
 
             MessageBox.Show(info, "Результаты анализа",
